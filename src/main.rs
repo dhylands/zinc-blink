@@ -6,12 +6,28 @@ extern crate zinc;
 
 use zinc::hal::timer::Timer;
 use zinc::hal::pin::Gpio;
-use zinc::hal::stm32f4::{pin, timer};
+use zinc::hal::stm32f4::{ init, pin, timer };
 
 #[zinc_main]
 pub fn main() {
   zinc::hal::mem_init::init_stack();
-  zinc::hal::mem_init::init_data();
+
+  // The STM32F4 Discovery board has an 8 MHz crystal. Configure the PLL to 
+  // run at 168 MHz and set it as the System Clock Source.
+
+  let pll_conf = init::PLLConf {
+    source: init::PLLClockSource::PLLClockHSE(8_000_000),
+    m: 8,
+    n: 336,
+    p: 2,
+    q: 7,
+  };
+  let sys_conf = init::SysConf {
+      clock: init::ClockConf {
+          source: init::SystemClockSource::SystemClockPLL(pll_conf),
+      },
+  };
+  sys_conf.setup();
 
   let leds = [
     pin::Pin {
@@ -40,7 +56,8 @@ pub fn main() {
     led.setup();
   }
 
-  let timer = timer::Timer::new(timer::TimerPeripheral::Timer2, 16u32);
+  // We're now running at 168 MHz, and Timer2's source frequency is 84 MHz
+  let timer = timer::Timer::new(timer::TimerPeripheral::Timer2, 84);
 
   loop {
     for led in leds.iter() {
